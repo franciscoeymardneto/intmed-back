@@ -1,0 +1,47 @@
+name: Deploy to Contabo VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install SSH client
+      run: sudo apt-get install -y sshpass
+
+    - name: Transfer files to VPS
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      run: |
+        ssh-keyscan $SSH_HOST >> ~/.ssh/known_hosts
+        echo "$SSH_PRIVATE_KEY" > private_key
+        chmod 600 private_key
+        scp -i private_key -r ./* $SSH_USERNAME@$SSH_HOST:/home/$SSH_USERNAME/app/
+
+    - name: Run deployment script on VPS
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      run: |
+        ssh -i private_key $SSH_USERNAME@$SSH_HOST << 'EOF'
+        cd /home/$SSH_USERNAME/app/
+        docker compose down
+        docker compose up -d --build
+        docker compose exec api python manage.py migrate
+        docker compose exec api python manage.py collectstatic --no-input
+        EOF
