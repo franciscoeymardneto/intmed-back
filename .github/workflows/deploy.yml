@@ -30,6 +30,7 @@ jobs:
         mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
         echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/private_key
+        chmod 700 ~/.ssh
         chmod 600 ~/.ssh/private_key
 
     - name: Test SSH Connection
